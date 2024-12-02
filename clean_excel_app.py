@@ -5,7 +5,7 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
 # Title
-st.title("Comprehensive Soil Data Cleaning and Analysis App")
+st.title("Comprehensive Soil Data Cleaning App")
 
 # Step 1: File Upload
 uploaded_file = st.file_uploader("Upload your soil data Excel file", type=["xlsx"])
