@@ -56,63 +56,42 @@ if uploaded_file:
 
     # Step 6: Missing Value Imputation
     st.write("Step 6: Filling missing values using Iterative Imputer...")
+
     non_predictive_columns = ['Site No.1', 'Site Num', 'Year', 'Sample Count', 'Period']
     df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
 
-    # Ensure all columns are numeric
-    for col in df_for_imputation.columns:
-        df_for_imputation[col] = pd.to_numeric(df_for_imputation[col], errors='coerce')
+    # Ensure only numeric columns are passed for imputation
+    numeric_columns = df_for_imputation.select_dtypes(include=[np.number]).columns
+    df_for_imputation = df_for_imputation[numeric_columns]
 
-    # Drop columns that are entirely NaN
-    df_for_imputation = df_for_imputation.dropna(how='all', axis=1)
+    # Drop rows with all NaNs
+    df_for_imputation = df_for_imputation.dropna(how='all', axis=0)
 
     # Display data before imputation
-    st.write("Data before imputation:")
+    st.write("Data before imputation (only numeric columns):")
     st.dataframe(df_for_imputation)
 
-    # Try imputation
+    # Perform imputation
     try:
         imputer = IterativeImputer(random_state=0, max_iter=50, tol=1e-4)
-        df_imputed = pd.DataFrame(imputer.fit_transform(df_for_imputation), columns=df_for_imputation.columns)
+        imputed_array = imputer.fit_transform(df_for_imputation)
+        df_imputed = pd.DataFrame(imputed_array, columns=df_for_imputation.columns)
         df_cleaned.update(df_imputed)
         st.success("Missing values filled successfully!")
-    except Exception as e:
-        st.error(f"An error occurred during imputation: {e}")
+    except ValueError as e:
+        st.error(f"Imputation failed: {e}")
         st.stop()
 
-    # Step 7: Calculate Contamination Index (CI) and ICI
-    st.write("Step 7: Calculating Contamination Index (CI) and Integrated Contamination Index (ICI)...")
-    native_means = {
-        "As": 6.2, "Cd": 0.375, "Cr": 28.5, "Cu": 23.0, "Ni": 17.95, "Pb": 33.0, "Zn": 94.5
-    }
-    for element, mean_value in native_means.items():
-        if element in df_cleaned.columns:
-            df_cleaned[f"CI_{element}"] = (df_cleaned[element] / mean_value).round(2)
-    df_cleaned['ICI'] = df_cleaned[[f"CI_{e}" for e in native_means.keys() if f"CI_{e}" in df_cleaned]].mean(axis=1).round(2)
-
-    def classify_ici(ici):
-        if ici <= 1:
-            return "Low Contamination"
-        elif 1 < ici <= 3:
-            return "Moderate Contamination"
-        else:
-            return "High Contamination"
-
-    df_cleaned['ICI_Class'] = df_cleaned['ICI'].apply(classify_ici)
-    st.success("ICI and contamination classification calculated!")
-    st.write("ICI and Contamination Classification:")
-    st.dataframe(df_cleaned[['Site No.1', 'ICI', 'ICI_Class']].head())
-
-    # Step 8: Display Final Cleaned Data
+    # Final Cleaned Data
     st.write("Final Cleaned Data:")
     st.dataframe(df_cleaned)
 
-    # Step 9: Download Cleaned Data
+    # Download Button
     cleaned_file = df_cleaned.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="Download Cleaned Data",
         data=cleaned_file,
-        file_name="cleaned_soil_data_with_ici.csv",
+        file_name="cleaned_soil_data.csv",
         mime="text/csv",
     )
-    st.success("Data cleaning process complete! Use the button above to download the cleaned dataset.")
+    st.success("Data cleaning complete!")
