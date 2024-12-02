@@ -56,7 +56,6 @@ if uploaded_file:
 
     # Step 6: Missing Value Imputation
     st.write("Step 6: Filling missing values using Iterative Imputer...")
-
     non_predictive_columns = ['Site No.1', 'Site Num', 'Year', 'Sample Count', 'Period']
     df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
 
@@ -82,16 +81,39 @@ if uploaded_file:
         st.error(f"Imputation failed: {e}")
         st.stop()
 
-    # Final Cleaned Data
+    # Step 7: Calculate Contamination Index (CI) and ICI
+    st.write("Step 7: Calculating Contamination Index (CI) and Integrated Contamination Index (ICI)...")
+    native_means = {
+        "As": 6.2, "Cd": 0.375, "Cr": 28.5, "Cu": 23.0, "Ni": 17.95, "Pb": 33.0, "Zn": 94.5
+    }
+    for element, mean_value in native_means.items():
+        if element in df_cleaned.columns:
+            df_cleaned[f"CI_{element}"] = (df_cleaned[element] / mean_value).round(2)
+    df_cleaned['ICI'] = df_cleaned[[f"CI_{e}" for e in native_means.keys() if f"CI_{e}" in df_cleaned]].mean(axis=1).round(2)
+
+    def classify_ici(ici):
+        if ici <= 1:
+            return "Low Contamination"
+        elif 1 < ici <= 3:
+            return "Moderate Contamination"
+        else:
+            return "High Contamination"
+
+    df_cleaned['ICI_Class'] = df_cleaned['ICI'].apply(classify_ici)
+    st.success("ICI and contamination classification calculated!")
+    st.write("ICI and Contamination Classification:")
+    st.dataframe(df_cleaned[['Site No.1', 'ICI', 'ICI_Class']].head())
+
+    # Step 8: Display Final Cleaned Data
     st.write("Final Cleaned Data:")
     st.dataframe(df_cleaned)
 
-    # Download Button
+    # Step 9: Download Cleaned Data
     cleaned_file = df_cleaned.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="Download Cleaned Data",
         data=cleaned_file,
-        file_name="cleaned_soil_data.csv",
+        file_name="cleaned_soil_data_with_ici.csv",
         mime="text/csv",
     )
-    st.success("Data cleaning complete!")
+    st.success("Data cleaning process complete! Use the button above to download the cleaned dataset.")
