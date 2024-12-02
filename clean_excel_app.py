@@ -109,7 +109,7 @@ if uploaded_file:
             def classify_ici(ici):
                 if ici <= 1:
                     return "Low Contamination"
-                elif 
+                elif 1 < ici <= 3:
                     return "Moderate Contamination"
                 else:
                     return "High Contamination"
