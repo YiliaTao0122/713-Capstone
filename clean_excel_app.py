@@ -83,26 +83,45 @@ if uploaded_file:
 
     # Step 7: Calculate Contamination Index (CI) and ICI
     st.write("Step 7: Calculating Contamination Index (CI) and Integrated Contamination Index (ICI)...")
+
+    # Define native means for elements
     native_means = {
         "As": 6.2, "Cd": 0.375, "Cr": 28.5, "Cu": 23.0, "Ni": 17.95, "Pb": 33.0, "Zn": 94.5
     }
-    for element, mean_value in native_means.items():
-        if element in df_cleaned.columns:
-            df_cleaned[f"CI_{element}"] = (df_cleaned[element] / mean_value).round(2)
-    df_cleaned['ICI'] = df_cleaned[[f"CI_{e}" for e in native_means.keys() if f"CI_{e}" in df_cleaned]].mean(axis=1).round(2)
 
-    def classify_ici(ici):
-        if ici <= 1:
-            return "Low Contamination"
-        elif 1 < ici <= 3:
-            return "Moderate Contamination"
+    # Ensure required columns are present
+    required_elements = list(native_means.keys())
+    missing_columns = [col for col in required_elements if col not in df_cleaned.columns]
+
+    if missing_columns:
+        st.warning(f"Missing columns for ICI calculation: {', '.join(missing_columns)}")
+    else:
+        # Calculate CI for each element
+        for element, mean_value in native_means.items():
+            if element in df_cleaned.columns:
+                df_cleaned[f"CI_{element}"] = (df_cleaned[element] / mean_value).round(2)
+
+        # Calculate ICI
+        if all(f"CI_{e}" in df_cleaned.columns for e in required_elements):
+            df_cleaned['ICI'] = df_cleaned[[f"CI_{e}" for e in required_elements]].mean(axis=1).round(2)
+
+            # Classify ICI
+            def classify_ici(ici):
+                if ici <= 1:
+                    return "Low Contamination"
+                elif 
+                    return "Moderate Contamination"
+                else:
+                    return "High Contamination"
+
+            df_cleaned['ICI_Class'] = df_cleaned['ICI'].apply(classify_ici)
+
+            # Display ICI results
+            st.success("ICI and contamination classification calculated successfully!")
+            st.write("ICI and Contamination Classification:")
+            st.dataframe(df_cleaned[['Site No.1', 'ICI', 'ICI_Class']].head())
         else:
-            return "High Contamination"
-
-    df_cleaned['ICI_Class'] = df_cleaned['ICI'].apply(classify_ici)
-    st.success("ICI and contamination classification calculated!")
-    st.write("ICI and Contamination Classification:")
-    st.dataframe(df_cleaned[['Site No.1', 'ICI', 'ICI_Class']].head())
+            st.error("ICI calculation failed due to missing CI columns.")
 
     # Step 8: Display Final Cleaned Data
     st.write("Final Cleaned Data:")
