@@ -67,8 +67,8 @@ if uploaded_file:
     df_for_imputation = df_for_imputation.dropna(how='all', axis=0)
 
     # Display data before imputation
-    st.write("Data before imputation (only numeric columns):")
-    st.dataframe(df_for_imputation)
+    st.write("Data before imputation (formatted to 2 decimal places):")
+    st.dataframe(df_for_imputation.style.format("{:.2f}"))
 
     # Perform imputation
     try:
@@ -78,6 +78,10 @@ if uploaded_file:
 
         # Round imputed values to 2 decimal places
         df_imputed = df_imputed.round(2)
+
+        # Show data after imputation
+        st.write("Data after imputation (formatted to 2 decimal places):")
+        st.dataframe(df_imputed.style.format("{:.2f}"))
 
         # Update the original DataFrame with imputed values
         df_cleaned.update(df_imputed)
