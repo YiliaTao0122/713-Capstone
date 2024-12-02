@@ -75,6 +75,11 @@ if uploaded_file:
         imputer = IterativeImputer(random_state=0, max_iter=50, tol=1e-4)
         imputed_array = imputer.fit_transform(df_for_imputation)
         df_imputed = pd.DataFrame(imputed_array, columns=df_for_imputation.columns)
+
+        # Round imputed values to 2 decimal places
+        df_imputed = df_imputed.round(2)
+
+        # Update the original DataFrame with imputed values
         df_cleaned.update(df_imputed)
         st.success("Missing values filled successfully!")
     except ValueError as e:
