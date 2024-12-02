@@ -58,10 +58,27 @@ if uploaded_file:
     st.write("Step 6: Filling missing values using Iterative Imputer...")
     non_predictive_columns = ['Site No.1', 'Site Num', 'Year', 'Sample Count', 'Period']
     df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
-    imputer = IterativeImputer(random_state=0, max_iter=50, tol=1e-4)
-    df_imputed = pd.DataFrame(imputer.fit_transform(df_for_imputation), columns=df_for_imputation.columns)
-    df_cleaned.update(df_imputed)
-    st.success("Missing values filled successfully!")
+
+    # Ensure all columns are numeric
+    for col in df_for_imputation.columns:
+        df_for_imputation[col] = pd.to_numeric(df_for_imputation[col], errors='coerce')
+
+    # Drop columns that are entirely NaN
+    df_for_imputation = df_for_imputation.dropna(how='all', axis=1)
+
+    # Display data before imputation
+    st.write("Data before imputation:")
+    st.dataframe(df_for_imputation)
+
+    # Try imputation
+    try:
+        imputer = IterativeImputer(random_state=0, max_iter=50, tol=1e-4)
+        df_imputed = pd.DataFrame(imputer.fit_transform(df_for_imputation), columns=df_for_imputation.columns)
+        df_cleaned.update(df_imputed)
+        st.success("Missing values filled successfully!")
+    except Exception as e:
+        st.error(f"An error occurred during imputation: {e}")
+        st.stop()
 
     # Step 7: Calculate Contamination Index (CI) and ICI
     st.write("Step 7: Calculating Contamination Index (CI) and Integrated Contamination Index (ICI)...")
@@ -99,4 +116,3 @@ if uploaded_file:
         mime="text/csv",
     )
     st.success("Data cleaning process complete! Use the button above to download the cleaned dataset.")
-
