@@ -69,11 +69,14 @@ if uploaded_file:
         imputed_array = imputer.fit_transform(df_for_imputation_numeric)
         df_imputed = pd.DataFrame(imputed_array, columns=numeric_columns)
 
+        # Round the imputed values to 2 decimal places
+        df_imputed = df_imputed.round(2)
+
         # Update the cleaned dataset with imputed values
         df_cleaned.update(df_imputed)
 
         st.success("Missing values filled successfully!")
-        st.write("Data after imputation:")
+        st.write("Data after imputation (rounded to 2 decimal places):")
         st.dataframe(df_cleaned)
 
     except ValueError as e:
