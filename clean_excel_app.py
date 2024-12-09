@@ -81,7 +81,16 @@ if uploaded_file:
         # Reverse one-hot encoding to restore original categorical columns
         for col in categorical_columns:
             encoded_columns = [c for c in df_imputed.columns if c.startswith(f"{col}_")]
-            df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
+
+            if not any(df_imputed[encoded_columns].sum(axis=1)):
+                # If all zeros in one-hot encoded columns, assign NaN or a default category
+                df_imputed[col] = np.nan
+                st.warning(f"One-hot encoded columns for {col} are all zero. Unable to determine category.")
+            else:
+                # Restore original category
+                df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
+
+            # Drop the one-hot encoded columns
             df_imputed = df_imputed.drop(columns=encoded_columns)
 
         # Reattach non-predictive columns
@@ -90,34 +99,29 @@ if uploaded_file:
         st.success("Missing values filled successfully!")
         st.write("Data after imputation:")
         st.dataframe(df_cleaned)
+
     except ValueError as e:
         st.error(f"Imputation failed: {e}")
         st.stop()
 
     # Step 7: Calculate Contamination Index (CI) and ICI
     st.write("Step 7: Calculating Contamination Index (CI) and Integrated Contamination Index (ICI)...")
-    # Define native means for elements
     native_means = {
         "As": 6.2, "Cd": 0.375, "Cr": 28.5, "Cu": 23.0, "Ni": 17.95, "Pb": 33.0, "Zn": 94.5
     }
-
-    # Ensure required columns are present
     required_elements = list(native_means.keys())
     missing_columns = [col for col in required_elements if col not in df_cleaned.columns]
 
     if missing_columns:
         st.warning(f"Missing columns for ICI calculation: {', '.join(missing_columns)}")
     else:
-        # Calculate CI for each element
         for element, mean_value in native_means.items():
             if element in df_cleaned.columns:
                 df_cleaned[f"CI_{element}"] = (df_cleaned[element] / mean_value).round(2)
 
-        # Calculate ICI
         if all(f"CI_{e}" in df_cleaned.columns for e in required_elements):
             df_cleaned['ICI'] = df_cleaned[[f"CI_{e}" for e in required_elements]].mean(axis=1).round(2)
 
-            # Classify ICI
             def classify_ici(ici):
                 if ici <= 1:
                     return "Low"
