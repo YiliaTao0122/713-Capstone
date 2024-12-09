@@ -54,47 +54,23 @@ if uploaded_file:
         )
     st.write(f"Processed columns with '<' values: {columns_with_less_than}")
 
-    # Step 6: Missing Value Imputation with One-Hot Encoding
-    st.write("Step 6: Filling missing values using Iterative Imputer (with categorical encoding)...")
+    # Step 6: Missing Value Imputation
+    st.write("Step 6: Filling missing values using Iterative Imputer...")
     non_predictive_columns = ['Site No.1', 'Site Num', 'Year', 'Sample Count', 'Period']
     df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
 
-    # Identify categorical columns
-    categorical_columns = df_for_imputation.select_dtypes(include=['object', 'category']).columns.tolist()
-
-    # One-hot encode categorical variables
-    df_encoded = pd.get_dummies(df_for_imputation, columns=categorical_columns, drop_first=False)
-
-    # Ensure only numeric columns are passed for imputation
-    numeric_columns = df_encoded.select_dtypes(include=[np.number]).columns
-    df_encoded = df_encoded[numeric_columns]
-
-    # Drop rows with all NaNs
-    df_encoded = df_encoded.dropna(how='all', axis=0)
+    # Impute only numeric data (IterativeImputer cannot handle non-numeric directly)
+    numeric_columns = df_for_imputation.select_dtypes(include=[np.number]).columns
+    df_for_imputation_numeric = df_for_imputation[numeric_columns]
 
     try:
-        # Perform imputation
+        # Impute missing values in numeric data
         imputer = IterativeImputer(random_state=0, max_iter=50, tol=1e-4)
-        imputed_array = imputer.fit_transform(df_encoded)
-        df_imputed = pd.DataFrame(imputed_array, columns=df_encoded.columns)
+        imputed_array = imputer.fit_transform(df_for_imputation_numeric)
+        df_imputed = pd.DataFrame(imputed_array, columns=numeric_columns)
 
-        # Reverse one-hot encoding to restore original categorical columns
-        for col in categorical_columns:
-            encoded_columns = [c for c in df_imputed.columns if c.startswith(f"{col}_")]
-
-            if not any(df_imputed[encoded_columns].sum(axis=1)):
-                # If all zeros in one-hot encoded columns, assign a default category
-                df_imputed[col] = "Unknown"
-                st.warning(f"One-hot encoded columns for {col} are all zero. Default category 'Unknown' assigned.")
-            else:
-                # Restore original category
-                df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
-
-            # Drop the one-hot encoded columns
-            df_imputed = df_imputed.drop(columns=encoded_columns)
-
-        # Reattach non-predictive columns
-        df_cleaned = pd.concat([df_cleaned[non_predictive_columns].reset_index(drop=True), df_imputed], axis=1)
+        # Update the cleaned dataset with imputed values
+        df_cleaned.update(df_imputed)
 
         st.success("Missing values filled successfully!")
         st.write("Data after imputation:")
@@ -151,4 +127,3 @@ if uploaded_file:
         mime="text/csv",
     )
     st.success("Data cleaning process complete! Use the button above to download the cleaned dataset.")
-
