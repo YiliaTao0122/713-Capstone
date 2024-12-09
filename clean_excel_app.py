@@ -5,7 +5,7 @@ from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
 
 # Title
-st.title("Comprehensive Soil Data Cleaning App")
+st.title("Comprehensive Soil Data Cleaning App with Categorical Handling")
 
 # Step 1: File Upload
 uploaded_file = st.file_uploader("Upload your soil data Excel file", type=["xlsx"])
@@ -54,45 +54,48 @@ if uploaded_file:
         )
     st.write(f"Processed columns with '<' values: {columns_with_less_than}")
 
-    # Step 6: Missing Value Imputation
-    st.write("Step 6: Filling missing values using Iterative Imputer...")
+    # Step 6: Missing Value Imputation with One-Hot Encoding
+    st.write("Step 6: Filling missing values using Iterative Imputer (with categorical encoding)...")
     non_predictive_columns = ['Site No.1', 'Site Num', 'Year', 'Sample Count', 'Period']
     df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
 
+    # Identify categorical columns
+    categorical_columns = df_for_imputation.select_dtypes(include=['object', 'category']).columns.tolist()
+
+    # One-hot encode categorical variables
+    df_encoded = pd.get_dummies(df_for_imputation, columns=categorical_columns, drop_first=False)
+
     # Ensure only numeric columns are passed for imputation
-    numeric_columns = df_for_imputation.select_dtypes(include=[np.number]).columns
-    df_for_imputation = df_for_imputation[numeric_columns]
+    numeric_columns = df_encoded.select_dtypes(include=[np.number]).columns
+    df_encoded = df_encoded[numeric_columns]
 
     # Drop rows with all NaNs
-    df_for_imputation = df_for_imputation.dropna(how='all', axis=0)
-
-    # Display data before imputation
-    st.write("Data before imputation (formatted to 2 decimal places):")
-    st.dataframe(df_for_imputation.style.format("{:.2f}"))
+    df_encoded = df_encoded.dropna(how='all', axis=0)
 
     # Perform imputation
     try:
         imputer = IterativeImputer(random_state=0, max_iter=50, tol=1e-4)
-        imputed_array = imputer.fit_transform(df_for_imputation)
-        df_imputed = pd.DataFrame(imputed_array, columns=df_for_imputation.columns)
+        imputed_array = imputer.fit_transform(df_encoded)
+        df_imputed = pd.DataFrame(imputed_array, columns=df_encoded.columns)
 
-        # Round imputed values to 2 decimal places
-        df_imputed = df_imputed.round(2)
+        # Reverse one-hot encoding to restore original categorical columns
+        for col in categorical_columns:
+            encoded_columns = [c for c in df_imputed.columns if c.startswith(f"{col}_")]
+            df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
+            df_imputed = df_imputed.drop(columns=encoded_columns)
 
-        # Show data after imputation
-        st.write("Data after imputation (formatted to 2 decimal places):")
-        st.dataframe(df_imputed.style.format("{:.2f}"))
+        # Reattach non-predictive columns
+        df_cleaned = pd.concat([df_cleaned[non_predictive_columns].reset_index(drop=True), df_imputed], axis=1)
 
-        # Update the original DataFrame with imputed values
-        df_cleaned.update(df_imputed)
         st.success("Missing values filled successfully!")
+        st.write("Data after imputation:")
+        st.dataframe(df_cleaned)
     except ValueError as e:
         st.error(f"Imputation failed: {e}")
         st.stop()
 
     # Step 7: Calculate Contamination Index (CI) and ICI
     st.write("Step 7: Calculating Contamination Index (CI) and Integrated Contamination Index (ICI)...")
-
     # Define native means for elements
     native_means = {
         "As": 6.2, "Cd": 0.375, "Cr": 28.5, "Cu": 23.0, "Ni": 17.95, "Pb": 33.0, "Zn": 94.5
@@ -125,7 +128,6 @@ if uploaded_file:
 
             df_cleaned['ICI_Class'] = df_cleaned['ICI'].apply(classify_ici)
 
-            # Display ICI results
             st.success("ICI and contamination classification calculated successfully!")
             st.write("ICI and Contamination Classification:")
             st.dataframe(df_cleaned[['Site No.1', 'ICI', 'ICI_Class']].head())
