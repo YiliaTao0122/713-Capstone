@@ -23,20 +23,25 @@ if uploaded_file:
     rows_removed = len(df) - len(df_cleaned)
     st.write(f"Rows removed due to missing critical values: {rows_removed}")
 
-    # Step 3: Extract and Process Sample Count
-    st.write("Step 3: Extracting Sample Count...")
+    # Step 3: Split 'Site No.1' into year, site number, and detection number
+    st.write("Step 3: Splitting 'Site No.1' into 'year', 'site number', and 'detection number'...")
     if 'Site No.1' in df_cleaned.columns:
-        df_cleaned['Sample Count'] = df_cleaned['Site No.1'].str.extract(r'-(\d{2})$').astype(float)
-        st.write("Sample Count Extracted:")
-        st.dataframe(df_cleaned[['Site No.1', 'Sample Count']].head())
+        try:
+            df_cleaned[['year', 'site number', 'detection number']] = df_cleaned['Site No.1'].str.split('-', expand=True)
+            st.write("Successfully split 'Site No.1' into separate columns:")
+            st.dataframe(df_cleaned[['Site No.1', 'year', 'site number', 'detection number']].head())
+        except Exception as e:
+            st.error(f"Error splitting 'Site No.1': {e}")
+    else:
+        st.warning("'Site No.1' column not found. Cannot split.")
 
     # Step 4: Add Period Column
     st.write("Step 4: Adding Period Column...")
     conditions = [
-        (df_cleaned['Year'] >= 1995) & (df_cleaned['Year'] <= 2000),
-        (df_cleaned['Year'] >= 2008) & (df_cleaned['Year'] <= 2012),
-        (df_cleaned['Year'] >= 2013) & (df_cleaned['Year'] <= 2017),
-        (df_cleaned['Year'] >= 2018) & (df_cleaned['Year'] <= 2023)
+        (df_cleaned['year'].astype(float) >= 1995) & (df_cleaned['year'].astype(float) <= 2000),
+        (df_cleaned['year'].astype(float) >= 2008) & (df_cleaned['year'].astype(float) <= 2012),
+        (df_cleaned['year'].astype(float) >= 2013) & (df_cleaned['year'].astype(float) <= 2017),
+        (df_cleaned['year'].astype(float) >= 2018) & (df_cleaned['year'].astype(float) <= 2023)
     ]
     period_labels = ['1995-2000', '2008-2012', '2013-2017', '2018-2023']
     df_cleaned['Period'] = np.select(conditions, period_labels, default='Unknown')
@@ -56,7 +61,7 @@ if uploaded_file:
 
     # Step 6: Missing Value Imputation
     st.write("Step 6: Filling missing values using Iterative Imputer...")
-    non_predictive_columns = ['Site No.1', 'Site Num', 'Year', 'Sample Count', 'Period']
+    non_predictive_columns = ['Site No.1', 'year', 'site number', 'detection number', 'Period']
     df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
 
     # Impute only numeric data (IterativeImputer cannot handle non-numeric directly)
