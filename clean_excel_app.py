@@ -59,90 +59,65 @@ if uploaded_file:
         )
     st.write(f"Processed columns with '<' values: {columns_with_less_than}")
 
-    # Step 6: Missing Value Imputation (Numeric and Categorical)
+    # Step 6: Missing Value Imputation (Optimized)
     st.write("Step 6: Filling missing values using Iterative Imputer...")
-    non_predictive_columns = ['Site No.1', 'year', 'site number', 'detection number', 'Period']
-    df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
-
-    # Separate categorical and numeric columns
-    categorical_columns = df_for_imputation.select_dtypes(include=['object', 'category']).columns.tolist()
-    numeric_columns = df_for_imputation.select_dtypes(include=[np.number]).columns.tolist()
 
     @st.cache_data
     def perform_imputation(df_for_imputation, categorical_columns):
-    # One-hot encode
-    df_encoded = pd.get_dummies(df_for_imputation, columns=categorical_columns, drop_first=False)
+        # One-hot encode categorical variables
+        df_encoded = pd.get_dummies(df_for_imputation, columns=categorical_columns, drop_first=False)
 
-    # Imputation
-    imputer = IterativeImputer(random_state=42, max_iter=5, tol=1e-3)
-    imputed_data = imputer.fit_transform(df_encoded)
+        # Impute missing values
+        imputer = IterativeImputer(random_state=42, max_iter=5, tol=1e-3)
+        imputed_data = imputer.fit_transform(df_encoded)
 
-    # Convert back to DataFrame
-    df_imputed = pd.DataFrame(imputed_data, columns=df_encoded.columns)
+        # Convert back to a DataFrame
+        df_imputed = pd.DataFrame(imputed_data, columns=df_encoded.columns)
 
-    # Map one-hot-encoded columns back to original categorical columns
-    for col in categorical_columns:
-        encoded_columns = [c for c in df_encoded.columns if c.startswith(f"{col}_")]
-        df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
-        df_imputed = df_imputed.drop(columns=encoded_columns)
+        # Map one-hot-encoded columns back to original categorical columns
+        for col in categorical_columns:
+            encoded_columns = [c for c in df_encoded.columns if c.startswith(f"{col}_")]
+            df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
+            df_imputed = df_imputed.drop(columns=encoded_columns)
 
-    return df_imputed
+        return df_imputed
 
-   # Call the cached function
+    non_predictive_columns = ['Site No.1', 'year', 'site number', 'detection number', 'Period']
+    df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
+
+    categorical_columns = df_for_imputation.select_dtypes(include=['object', 'category']).columns.tolist()
     with st.spinner("Performing imputation..."):
-    df_imputed = perform_imputation(df_for_imputation, categorical_columns)
-   st.success("Imputation complete!")
+        df_imputed = perform_imputation(df_for_imputation, categorical_columns)
+    st.success("Imputation complete!")
+    st.write("Data after imputation:")
+    st.dataframe(df_imputed)
 
-        # Reattach non-predictive columns to the imputed dataset
-        df_final = pd.concat([df_cleaned[non_predictive_columns].reset_index(drop=True), df_imputed], axis=1)
+    # Step 7: Reintegrate Data
+    df_final = pd.concat([df_cleaned[non_predictive_columns].reset_index(drop=True), df_imputed], axis=1)
 
-        st.success("Missing values filled successfully!")
-        st.write("Data after imputation:")
-        st.dataframe(df_final)
-
-    except ValueError as e:
-        st.error(f"Imputation failed: {e}")
-        st.stop()
-
-    # Step 7: Calculate Contamination Index (CI) and ICI
-    st.write("Step 7: Calculating Contamination Index (CI) and Integrated Contamination Index (ICI)...")
+    # Step 8: Calculate Contamination Index (CI) and ICI
+    st.write("Step 8: Calculating Contamination Index (CI) and Integrated Contamination Index (ICI)...")
     native_means = {
         "As": 6.2, "Cd": 0.375, "Cr": 28.5, "Cu": 23.0, "Ni": 17.95, "Pb": 33.0, "Zn": 94.5
     }
-    required_elements = list(native_means.keys())
-    missing_columns = [col for col in required_elements if col not in df_final.columns]
 
-    if missing_columns:
-        st.warning(f"Missing columns for ICI calculation: {', '.join(missing_columns)}")
-    else:
-        for element, mean_value in native_means.items():
-            if element in df_final.columns:
-                df_final[f"CI_{element}"] = (df_final[element] / mean_value).round(2)
+    for element, mean_value in native_means.items():
+        if element in df_final.columns:
+            df_final[f"CI_{element}"] = (df_final[element] / mean_value).round(2)
 
-        if all(f"CI_{e}" in df_final.columns for e in required_elements):
-            df_final['ICI'] = df_final[[f"CI_{e}" for e in required_elements]].mean(axis=1).round(2)
-
-            def classify_ici(ici):
-                if ici <= 1:
-                    return "Low"
-                elif 1 < ici <= 3:
-                    return "Moderate"
-                else:
-                    return "High"
-
-            df_final['ICI_Class'] = df_final['ICI'].apply(classify_ici)
-
-            st.success("ICI and contamination classification calculated successfully!")
-            st.write("ICI and Contamination Classification:")
-            st.dataframe(df_final[['Site No.1', 'ICI', 'ICI_Class']].head())
-        else:
-            st.error("ICI calculation failed due to missing CI columns.")
-
-    # Step 8: Display Final Cleaned Data
-    st.write("Final Cleaned Data:")
-    st.dataframe(df_final)
+    ci_columns = [f"CI_{e}" for e in native_means.keys() if f"CI_{e}" in df_final.columns]
+    if ci_columns:
+        df_final['ICI'] = df_final[ci_columns].mean(axis=1).round(2)
+        df_final['ICI_Class'] = df_final['ICI'].apply(
+            lambda x: 'Low' if x <= 1 else 'Moderate' if x <= 3 else 'High'
+        )
+        st.success("ICI and contamination classification calculated successfully!")
+        st.write("ICI and Contamination Classification:")
+        st.dataframe(df_final[['Site No.1', 'ICI', 'ICI_Class']].head())
 
     # Step 9: Download Cleaned Data
+    st.write("Final Cleaned Data:")
+    st.dataframe(df_final)
     cleaned_file = df_final.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="Download Cleaned Data",
