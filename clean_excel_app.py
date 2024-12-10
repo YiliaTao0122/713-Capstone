@@ -68,22 +68,30 @@ if uploaded_file:
     categorical_columns = df_for_imputation.select_dtypes(include=['object', 'category']).columns.tolist()
     numeric_columns = df_for_imputation.select_dtypes(include=[np.number]).columns.tolist()
 
-    # One-hot encode categorical variables
+    @st.cache_data
+    def perform_imputation(df_for_imputation, categorical_columns):
+    # One-hot encode
     df_encoded = pd.get_dummies(df_for_imputation, columns=categorical_columns, drop_first=False)
 
-    try:
-        # Apply IterativeImputer
-        imputer = IterativeImputer(random_state=42, max_iter=10)
-        imputed_data = imputer.fit_transform(df_encoded)
+    # Imputation
+    imputer = IterativeImputer(random_state=42, max_iter=5, tol=1e-3)
+    imputed_data = imputer.fit_transform(df_encoded)
 
-        # Convert the imputed data back to a DataFrame
-        df_imputed = pd.DataFrame(imputed_data, columns=df_encoded.columns)
+    # Convert back to DataFrame
+    df_imputed = pd.DataFrame(imputed_data, columns=df_encoded.columns)
 
-        # Map one-hot-encoded columns back to original categorical columns
-        for col in categorical_columns:
-            encoded_columns = [c for c in df_encoded.columns if c.startswith(f"{col}_")]
-            df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
-            df_imputed = df_imputed.drop(columns=encoded_columns)
+    # Map one-hot-encoded columns back to original categorical columns
+    for col in categorical_columns:
+        encoded_columns = [c for c in df_encoded.columns if c.startswith(f"{col}_")]
+        df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
+        df_imputed = df_imputed.drop(columns=encoded_columns)
+
+    return df_imputed
+
+   # Call the cached function
+    with st.spinner("Performing imputation..."):
+    df_imputed = perform_imputation(df_for_imputation, categorical_columns)
+   st.success("Imputation complete!")
 
         # Reattach non-predictive columns to the imputed dataset
         df_final = pd.concat([df_cleaned[non_predictive_columns].reset_index(drop=True), df_imputed], axis=1)
