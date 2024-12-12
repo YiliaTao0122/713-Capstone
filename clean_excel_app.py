@@ -3,7 +3,6 @@ import numpy as np
 import streamlit as st
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
-from missingpy import MissForest
 
 # Function to perform the imputation (replace with actual implementation)
 def perform_imputation(df, categorical_columns):
