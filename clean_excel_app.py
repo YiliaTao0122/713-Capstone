@@ -62,25 +62,12 @@ if uploaded_file:
     # Step 6: Missing Value Imputation (Optimized)
     st.write("Step 6: Filling missing values using Iterative Imputer...")
 
-    @st.cache_data
-    def perform_imputation(df_for_imputation, categorical_columns):
-        # One-hot encode categorical variables
-        df_encoded = pd.get_dummies(df_for_imputation, columns=categorical_columns, drop_first=False)
-
         # Impute missing values
         imputer = IterativeImputer(random_state=42, max_iter=5, tol=1e-3)
-        imputed_data = imputer.fit_transform(df_encoded)
+        imputed_data = imputer.fit_transform(df_cleaned)
 
         # Convert back to a DataFrame
-        df_imputed = pd.DataFrame(imputed_data, columns=df_encoded.columns)
-
-        # Map one-hot-encoded columns back to original categorical columns
-        for col in categorical_columns:
-            encoded_columns = [c for c in df_encoded.columns if c.startswith(f"{col}_")]
-            df_imputed[col] = df_imputed[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
-            df_imputed = df_imputed.drop(columns=encoded_columns)
-
-        return df_imputed
+        df_imputed = pd.DataFrame(imputed_data, columns=df_cleaned.columns)
 
     non_predictive_columns = ['Site No.1', 'year', 'site number', 'detection number', 'Period']
     df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
