@@ -1,6 +1,3 @@
-Sure! I'll complement your code by integrating the new steps for applying the ML model for imputation into the existing script. Here is the updated code:
-
-```python
 import pandas as pd
 import numpy as np
 import streamlit as st
@@ -126,44 +123,12 @@ if uploaded_file:
     st.write("Filtered dataset with only the latest sample count for each site-period:")
     st.dataframe(df_latest_samples)
 
-    # Applying ML model for imputation
-    st.write("Step 10: Applying ML model for imputation...")
-
-    # Step 1: Identify non-predictive columns
-    non_predictive_columns_ml = ['Site No.1', 'Site Num', 'Year', 'Sample Count', 'Period']
-
-    # Step 2: Drop non-predictive columns for imputation
-    df_for_imputation_ml = df_latest_samples.drop(columns=non_predictive_columns_ml)
-
-    # Step 3: Identify categorical columns
-    categorical_columns_ml = df_for_imputation_ml.select_dtypes(include=['object', 'category']).columns.tolist()
-
-    # Step 4: One-hot encode categorical variables
-    df_encoded = pd.get_dummies(df_for_imputation_ml, columns=categorical_columns_ml, drop_first=False)
-
-    # Step 5: Apply MissForest for imputation
-    imputer = MissForest()
-    imputed_data = imputer.fit_transform(df_encoded)
-
-    # Convert the imputed data back to a DataFrame
-    df_imputed_ml = pd.DataFrame(imputed_data, columns=df_encoded.columns)
-
-    # Step 6: Map one-hot-encoded columns back to original categorical columns
-    for col in categorical_columns_ml:
-        encoded_columns = [c for c in df_encoded.columns if c.startswith(f"{col}_")]
-        df_imputed_ml[col] = df_imputed_ml[encoded_columns].idxmax(axis=1).str[len(col) + 1:]
-        df_imputed_ml = df_imputed_ml.drop(columns=encoded_columns)
-
-    # Step 7: Reattach non-predictive columns to the imputed dataset
-    df_final_ml = pd.concat([df_latest_samples[non_predictive_columns_ml].reset_index(drop=True), df_imputed_ml], axis=1)
-
-    # Step 8: Verify the final dataset
+    # Step 10: Verify the final dataset
     st.write("Verifying the final dataset after imputation...")
-    st.dataframe(df_final_ml)
+    st.dataframe(df_latest_samples)
     st.write("Null value counts in the final dataset:")
-    st.write(df_final_ml.isnull().sum())
+    st.write(df_latest_samples.isnull().sum())
 
     # Step 11: Download Cleaned Data
     st.write("Final Cleaned Data with latest sample counts and imputed values:")
-    st.dataframe(df_final_ml)
-    cleaned_file_ml = df_final_ml.to_csv(index=False).encode('utf-8')
+    st.dataframe(df_latest_samples) 
