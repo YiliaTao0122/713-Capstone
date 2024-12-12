@@ -62,12 +62,12 @@ if uploaded_file:
     # Step 6: Missing Value Imputation (Optimized)
     st.write("Step 6: Filling missing values using Iterative Imputer...")
 
-        # Impute missing values
-        imputer = IterativeImputer(random_state=42, max_iter=5, tol=1e-3)
-        imputed_data = imputer.fit_transform(df_cleaned)
+    # Impute missing values
+    imputer = IterativeImputer(random_state=42, max_iter=5, tol=1e-3)
+    imputed_data = imputer.fit_transform(df_cleaned)
 
-        # Convert back to a DataFrame
-        df_imputed = pd.DataFrame(imputed_data, columns=df_cleaned.columns)
+    # Convert back to a DataFrame
+    df_imputed = pd.DataFrame(imputed_data, columns=df_cleaned.columns)
 
     non_predictive_columns = ['Site No.1', 'year', 'site number', 'detection number', 'Period']
     df_for_imputation = df_cleaned.drop(columns=non_predictive_columns, errors='ignore')
